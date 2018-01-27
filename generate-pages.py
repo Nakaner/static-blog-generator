@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import json, sys, datetime, os
+import json, sys, datetime
 import hashlib
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from static_blog_generator.pubdates import Pubdates
