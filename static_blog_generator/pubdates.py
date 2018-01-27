@@ -2,9 +2,7 @@
 
 import json, sys, datetime, csv, os
 import hashlib
-
-def get_source_filename(language, entry_id):
-    return "src/{}/{}.html.source".format(language, entry_id)
+from static_blog_generator.entry_writer import EntryWriter
 
 class PubdateInfo:
     def __init__(self, language, entry_id, pubdate, md5="", moddate=""):
@@ -25,7 +23,8 @@ def pubdate_from_json(information):
 
 
 class Pubdates:
-    def __init__(self):
+    def __init__(self, entry_writer):
+        self.entry_writer = entry_writer
         self.entries = {}
         self.current = 0
 
@@ -83,7 +82,7 @@ class Pubdates:
     def set_moddate_if_missing(self, lang, entry_id):
         entry = self.get_entry(lang, entry_id)
         hash_md5 = hashlib.md5()
-        with open(get_source_filename(lang, entry_id), "rb") as f:
+        with open(self.entry_writer.get_source_filename(lang, entry_id), "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_md5.update(chunk)
         md5sum = hash_md5.hexdigest()
@@ -96,7 +95,7 @@ class Pubdates:
         Legacy, might not work any more.
         """
         hash_md5 = hashlib.md5()
-        with open(get_source_filename(lang, id), "rb") as f:
+        with open(self.entry_writer.get_source_filename(lang, id), "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_md5.update(chunk)
         md5sum = hash_md5.hexdigest()
