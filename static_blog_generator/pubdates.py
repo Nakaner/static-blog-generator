@@ -1,11 +1,11 @@
 #! /usr/bin/env python3
 
-import json, sys, datetime, csv, os
+import json, sys, datetime, os, re
 import hashlib
 from static_blog_generator.entry_writer import EntryWriter
 
 class PubdateInfo:
-    def __init__(self, language, entry_id, pubdate, md5="", moddate=""):
+    def __init__(self, language, entry_id, pubdate, md5="", moddate=None):
         self.language = language
         self.id = entry_id
         self.pubdate = pubdate
@@ -16,11 +16,27 @@ class PubdateInfo:
 def pubdate_from_json(information):
     lang = information["language"]
     entry_id = information["id"]
-    pubdate = information["pubdate"]
+    pubdate_str = information["pubdate"]
+    if pubdate_str.endswith("Z"):
+        pubdate = datetime.datetime.strptime(pubdate_str, "%Y-%m-%dT%H:%M:%SZ")
+    else:
+        pubdate = datetime.datetime.strptime(pubdate_str, "%Y-%m-%dT%H:%M:%S%z")
     md5 = information["md5"]
-    moddate = information.get("moddate", "")
+    moddate_str = information.get("moddate", "")
+    if moddate_str is None or moddate_str == "":
+        moddate = None
+    elif moddate_str.endswith("Z"):
+        moddate = datetime.datetime.strptime(moddate_str, "%Y-%m-%dT%H:%M:%SZ")
+    elif re.search("\+[0-9]{4}$", moddate_str) is not None:
+        moddate = datetime.datetime.strptime(moddate_str, "%Y-%m-%dT%H:%M:%S%z")
+    else:
+        raise Exception("Could not parse moddate string '{}'".format(moddate_str))
     return PubdateInfo(lang, entry_id, pubdate, md5, moddate)
 
+def time_serialize(obj):
+    if isinstance(obj, datetime.datetime):
+        return obj.strftime("%Y-%m-%dT%H:%M:%S%z")
+    raise TypeError("Type {} not serializable".format(type(obj)))
 
 class Pubdates:
     def __init__(self, entry_writer):
@@ -61,23 +77,8 @@ class Pubdates:
     def set_pubdate_if_missing(self, lang, entry_id):
         if self.get_entry(lang, entry_id, True) is not None:
             return
-        pubdate = datetime.date.today()
-        self.entries[lang].append(PubdateInfo(lang, entry_id, pubdate.strftime("%Y-%m-%d")))
-
-    def get_and_set_pubdate(self, entry_id, lang):
-        """
-        Legacy, might not work any more.
-        """
-        pubdate = datetime.date.today()
-        for entry in self.entries:
-            if entry["id"] == entry_id and entry["language"] == lang and ("pubdate" in entry):
-                pubdate = datetime.datetime.strptime(entry["pubdate"], "%Y-%m-%d")
-                return pubdate.strftime("%Y-%m-%d")
-        # Entry not found, let's create it.
-        entry = {"id": id, "language": lang, "pubdate": pubdate.strftime("%Y-%m-%d")}
-        self.entries.append(entry)
-        return pubdate.strftime("%Y-%m-%d")
-#        raise KeyError("""Could not find entry with id == "%s" and lang == "%s" to get/set pubdate.\n""" % (id, lang))
+        pubdate = datetime.datetime.utcnow()
+        self.entries[lang].append(PubdateInfo(lang, entry_id, pubdate))
 
     def set_moddate_if_missing(self, lang, entry_id):
         entry = self.get_entry(lang, entry_id)
@@ -88,30 +89,7 @@ class Pubdates:
         md5sum = hash_md5.hexdigest()
         if entry.md5 != "" and entry.md5 != md5sum:
             entry.md5 = md5sum
-            entry.moddate = datetime.date.today().strftime("%Y-%m-%d")
-
-    def get_and_set_moddate(self, id, lang):
-        """
-        Legacy, might not work any more.
-        """
-        hash_md5 = hashlib.md5()
-        with open(self.entry_writer.get_source_filename(lang, id), "rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                hash_md5.update(chunk)
-        md5sum = hash_md5.hexdigest()
-        for entry in self.entries:
-            if entry["id"] == id and entry["language"] == lang and ("md5" in entry):
-                if entry["md5"] != md5sum:
-                    entry["md5"] = md5sum
-                    entry["moddate"] = datetime.date.today().strftime("%Y-%m-%d")
-                if "moddate" in entry:
-                    return entry["moddate"]
-                else:
-                    return ""
-            elif entry["id"] == id and entry["language"] == lang and ("md5" not in entry):
-                entry["md5"] = md5sum
-                return ""
-        raise KeyError("""Could not find entry with id == "%s" and lang == "%s" to get/set moddate.\n""" % (id, lang))
+            entry.moddate = datetime.datetime.utcnow()
 
     def write_to_file(self, filename):
         outlist = []
@@ -125,4 +103,4 @@ class Pubdates:
                 obj["moddate"] = entry.moddate
                 outlist.append(obj)
         with open(filename, 'w') as fp:
-            json.dump(outlist, fp, indent=2)
+            json.dump(outlist, fp, indent=2, default=time_serialize)

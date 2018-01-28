@@ -5,6 +5,18 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from static_blog_generator.entry import Entry
 from static_blog_generator.entry_collection import EntryCollection
 
+def atom_timestamp(timestamp):
+    return timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+def rss_timestamp(timestamp):
+    return timestamp.strftime("%a, %d %b %Y %H:%M:%S +0000")
+
+def en_timestamp(timestamp):
+    return timestamp.strftime("%Y-%m-%d")
+
+def de_timestamp(timestamp):
+    return timestamp.strftime("%d.%m.%Y")
+
 class EntryWriter:
     def __init__(self, template_searchpath, source_directory, output_directory):
         self.env = Environment(
@@ -12,6 +24,9 @@ class EntryWriter:
             trim_blocks=True,
             autoescape=select_autoescape(enabled_extensions=(), default_for_string=True, default=False)
         )
+        self.env.filters["rss_timestamp"] = rss_timestamp
+        self.env.filters["de_timestamp"] = de_timestamp
+        self.env.filters["en_timestamp"] = en_timestamp
         self.output_directory = output_directory
         self.source_directory = source_directory
         self.create_directories()
@@ -56,8 +71,8 @@ class EntryWriter:
             entry.source_filename = self.get_source_filename(entry.language, entry.id)
         pubtimes = [entry.pubdate for entry in entries]
         latest_pubtime = max(pubtimes)
-        latest_update = datetime.datetime.strptime(latest_pubtime, "%Y-%m-%d").strftime("%a, %d %b %Y 12:00:00 +0000")
-        latest_build = datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S +0000")
+        latest_update = latest_pubtime
+        latest_build = datetime.datetime.utcnow()
         language = entries[0].language
         with open("{}/{}.rss".format(self.output_directory, language), "wb") as feedfile:
             result = template.render(latest_update=latest_update, latest_build=latest_build, description="", postings=entries, language=language)

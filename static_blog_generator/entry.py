@@ -14,11 +14,7 @@ class Entry:
     def set_pubdate(self, pubdate, moddate, md5sum):
         self.pubdate = pubdate
         self.md5 = md5sum
-        if moddate == "":
-            self.pubdate = pubdate
-            self.moddate = ""
-        else:
-            self.moddate = moddate
+        self.moddate = moddate
 
     def set_cross_language_link(self, language, path):
         self.other_paths[language] = path
