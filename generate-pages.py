@@ -62,13 +62,13 @@ with open(args.blog_configuration) as data_file:
     template_single_en = "blog-en.html"
 
     writer.write_single_entry_pages(entries_de, template_single_de, entries_de.get_latest())
-    writer.write_single_entry_pages(entries_en, template_single_en, entries_de.get_latest())
+    writer.write_single_entry_pages(entries_en, template_single_en, entries_en.get_latest())
 
     template_overview_de = "blog-overview-de.html"
     template_overview_en = "blog-overview-en.html"
 
     writer.write_overview_pages(entries_de.by_date(True), template_overview_de, entries_de.get_latest())
-    writer.write_overview_pages(entries_en.by_date(True), template_overview_en, entries_de.get_latest())
+    writer.write_overview_pages(entries_en.by_date(True), template_overview_en, entries_en.get_latest())
 
     writer.build_atom(entries_de.by_date(True))
     writer.build_atom(entries_en.by_date(True))
