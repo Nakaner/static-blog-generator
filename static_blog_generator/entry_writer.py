@@ -2,14 +2,9 @@
 
 import sys, os, datetime
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from werkzeug.contrib.atom import AtomFeed
 from static_blog_generator.entry import Entry
 from static_blog_generator.entry_collection import EntryCollection
-
-def atom_timestamp(timestamp):
-    return timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-def rss_timestamp(timestamp):
-    return timestamp.strftime("%a, %d %b %Y %H:%M:%S +0000")
 
 def en_timestamp(timestamp):
     return timestamp.strftime("%Y-%m-%d")
@@ -24,7 +19,6 @@ class EntryWriter:
             trim_blocks=True,
             autoescape=select_autoescape(enabled_extensions=(), default_for_string=True, default=False)
         )
-        self.env.filters["rss_timestamp"] = rss_timestamp
         self.env.filters["de_timestamp"] = de_timestamp
         self.env.filters["en_timestamp"] = en_timestamp
         self.output_directory = output_directory
@@ -64,19 +58,23 @@ class EntryWriter:
                 posting_html.write(result.encode("utf-8"))
                 posting_html.close()
             page_number += 1
-    
-    def build_rss(self, entries, template_filename):
-        template = self.env.get_template(template_filename)
+
+    def build_atom(self, entries):
+        lang = entries[0].language
+        feed_title = "OpenRailwayMap ({})".format(lang)
+        feed_url = "https://blog.openrailwaymap.org/{}.atom".format(lang)
+        feed = AtomFeed(feed_title, feed_url=feed_url, title_type="text", author="OpenRailwayMap developers")
         for entry in entries:
-            entry.source_filename = self.get_source_filename(entry.language, entry.id)
-        pubtimes = [entry.pubdate for entry in entries]
-        latest_pubtime = max(pubtimes)
-        latest_update = latest_pubtime
-        latest_build = datetime.datetime.utcnow()
-        language = entries[0].language
-        with open("{}/{}.rss".format(self.output_directory, language), "wb") as feedfile:
-            result = template.render(latest_update=latest_update, latest_build=latest_build, description="", postings=entries, language=language)
-            feedfile.write(result.encode("utf-8"))
+            dest_path = "https://blog.openrailwaymap.org/{}/{}".format(lang, entry.destination_path)
+            updated = entry.moddate
+            if entry.moddate is None or entry.moddate == "":
+                updated = entry.pubdate
+            with open(self.get_source_filename(entry.language, entry.id), "r") as entry_src:
+                entry_text = entry_src.read()
+                feed.add(entry.title, entry_text, content_type="html", author=entry.authors,
+                        url=dest_path, updated=updated, published=entry.pubdate)
+        with open("{}/{}.atom".format(self.output_directory, lang), "w") as feedfile:
+            feedfile.write(feed.to_string())
     
     def write_entry(self, template_filename, entry, previous_entry, next_entry, latest_entries):
         template = self.env.get_template(template_filename)

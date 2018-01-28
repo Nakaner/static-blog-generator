@@ -70,9 +70,8 @@ with open(args.blog_configuration) as data_file:
     writer.write_overview_pages(entries_de.by_date(True), template_overview_de, entries_de.get_latest())
     writer.write_overview_pages(entries_en.by_date(True), template_overview_en, entries_de.get_latest())
 
-    rss_template = "rss-template.rss"
-    writer.build_rss(entries_de.by_date(True), rss_template)
-    writer.build_rss(entries_en.by_date(True), rss_template)
+    writer.build_atom(entries_de.by_date(True))
+    writer.build_atom(entries_en.by_date(True))
 
     entries_de.save_pubdates(pubdates)
     entries_en.save_pubdates(pubdates)
